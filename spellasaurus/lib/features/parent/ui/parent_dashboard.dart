@@ -211,8 +211,8 @@ class ParentDashboard extends ConsumerWidget {
                             color: AppColors.textMedium),
                         const Gap(12),
                         Text(
-                          dob != null
-                              ? DateFormat('d MMMM yyyy').format(dob!)
+                                                dob != null
+                              ? '${DateFormat('d MMMM yyyy').format(dob!)}  •  Age ${_calcAge(dob!)}'
                               : 'Date of Birth',
                           style:
                               Theme.of(ctx).textTheme.bodyLarge?.copyWith(
@@ -367,6 +367,14 @@ class ParentDashboard extends ConsumerWidget {
       ),
     );
   }
+}
+
+int _calcAge(DateTime dob) {
+  final now = DateTime.now();
+  int age = now.year - dob.year;
+  if (now.month < dob.month ||
+      (now.month == dob.month && now.day < dob.day)) age--;
+  return age;
 }
 
 class _ChildCard extends StatelessWidget {

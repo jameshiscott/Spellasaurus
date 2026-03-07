@@ -137,9 +137,11 @@ class ParentDashboard extends ConsumerWidget {
 
   void _showAddChildDialog(BuildContext context, WidgetRef ref) {
     final nameCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
+    final usernameCtrl = TextEditingController();
     final passwordCtrl = TextEditingController();
     DateTime? dob;
+    bool obscure = true;
+    String? error;
 
     showModalBottomSheet(
       context: context,
@@ -224,44 +226,135 @@ class ParentDashboard extends ConsumerWidget {
                   ),
                 ),
                 const Gap(16),
-                TextField(
-                  controller: emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: "Child's Login Email",
-                    helperText: 'Can be a made-up email they remember',
-                  ),
+                // Username field with @spellasaurus.com suffix
+                Text('Child\'s Login Username',
+                    style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                        color: AppColors.textMedium)),
+                const Gap(6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: usernameCtrl,
+                        keyboardType: TextInputType.text,
+                        autocorrect: false,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          hintText: 'e.g. emma2015',
+                          prefixIcon: Icon(Icons.person_outline_rounded),
+                        ),
+                        onChanged: (_) => setModalState(() => error = null),
+                      ),
+                    ),
+                    Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight.withValues(alpha: 0.15),
+                        borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(16)),
+                        border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.3)),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text('@spellasaurus.com',
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                  ],
                 ),
+                const Gap(8),
+                Text('Letters, numbers, dots and hyphens only',
+                    style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textLight)),
                 const Gap(16),
                 TextField(
                   controller: passwordCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: obscure,
+                  decoration: InputDecoration(
                     labelText: "Password",
                     helperText: 'At least 8 characters',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined),
+                      onPressed: () => setModalState(() => obscure = !obscure),
+                    ),
                   ),
                 ),
+                if (error != null) ...[
+                  const Gap(12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline,
+                            color: AppColors.error, size: 18),
+                        const Gap(8),
+                        Expanded(
+                          child: Text(error!,
+                              style: Theme.of(ctx).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.error)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const Gap(24),
                 SpellasaurusButton(
                   label: 'Create Child Account',
                   onPressed: () async {
-                    if (nameCtrl.text.trim().isEmpty ||
-                        emailCtrl.text.trim().isEmpty ||
-                        passwordCtrl.text.length < 8 ||
-                        dob == null) return;
+                    final name = nameCtrl.text.trim();
+                    final username = usernameCtrl.text.trim().toLowerCase();
+                    final password = passwordCtrl.text;
+
+                    if (name.isEmpty) {
+                      setModalState(() => error = "Please enter the child's name.");
+                      return;
+                    }
+                    if (username.isEmpty ||
+                        !RegExp(r'^[a-z0-9._-]+$').hasMatch(username)) {
+                      setModalState(() => error =
+                          "Username can only contain letters, numbers, dots, hyphens and underscores.");
+                      return;
+                    }
+                    if (password.length < 8) {
+                      setModalState(
+                          () => error = "Password must be at least 8 characters.");
+                      return;
+                    }
+                    if (dob == null) {
+                      setModalState(() => error = "Please select a date of birth.");
+                      return;
+                    }
+
+                    setModalState(() => error = null);
                     final user = ref.read(currentUserProvider);
-                    // Call edge function to create child account
-                    await supabase.functions.invoke(
+                    final result = await supabase.functions.invoke(
                       'create-child-account',
                       body: {
-                        'full_name': nameCtrl.text.trim(),
-                        'email': emailCtrl.text.trim(),
-                        'password': passwordCtrl.text,
+                        'full_name': name,
+                        'username': username,
+                        'password': password,
                         'date_of_birth':
                             dob!.toIso8601String().substring(0, 10),
                         'parent_id': user?.id,
                       },
                     );
+
+                    final data = result.data as Map<String, dynamic>?;
+                    if (data?['error'] != null) {
+                      setModalState(() => error = data!['error'] as String);
+                      return;
+                    }
+
                     ref.invalidate(_myChildrenProvider);
                     if (ctx.mounted) Navigator.pop(ctx);
                   },

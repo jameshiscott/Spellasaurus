@@ -34,8 +34,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _loading = true; _error = null; });
     try {
+      // If no @ in the email field, treat as child username and append domain
+      var email = _emailCtrl.text.trim();
+      if (!email.contains('@')) email = '${email.toLowerCase()}@spellasaurus.com';
       await ref.read(authRepositoryProvider).signIn(
-        email: _emailCtrl.text.trim(),
+        email: email,
         password: _passwordCtrl.text,
       );
       // Router redirect handles navigation
@@ -87,12 +90,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
+                  autocorrect: false,
                   decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
+                    labelText: 'Email or Username',
+                    hintText: 'email@example.com or child username',
+                    prefixIcon: Icon(Icons.person_outline_rounded),
                   ),
                   validator: (v) =>
-                      (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                      (v == null || v.trim().isEmpty) ? 'Please enter your email or username' : null,
                 ).animate().slideX(begin: -0.1, delay: 350.ms),
                 const Gap(16),
                 TextFormField(

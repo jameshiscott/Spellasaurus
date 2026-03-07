@@ -18,7 +18,7 @@ final _myChildrenProvider = FutureProvider<List<Profile>>((ref) async {
       .select('profiles!parent_children_child_id_fkey(*)')
       .eq('parent_id', user.id);
   return (data as List)
-      .map((e) => Profile.fromJson(e['profiles!parent_children_child_id_fkey'] as Map<String, dynamic>))
+      .map((e) => Profile.fromJson((e['profiles!parent_children_child_id_fkey'] ?? e['profiles']) as Map<String, dynamic>))
       .toList();
 });
 

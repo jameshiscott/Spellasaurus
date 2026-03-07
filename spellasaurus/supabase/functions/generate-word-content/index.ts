@@ -10,12 +10,23 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     const { word_id } = await req.json();
     if (!word_id) {
       return new Response(JSON.stringify({ error: "word_id required" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -42,6 +53,7 @@ serve(async (req) => {
     if (wordErr || !wordRow) {
       return new Response(JSON.stringify({ error: "Word not found" }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -156,12 +168,13 @@ serve(async (req) => {
         description,
         example_sentence: exampleSentence,
       }),
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("generate-word-content error:", err);
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

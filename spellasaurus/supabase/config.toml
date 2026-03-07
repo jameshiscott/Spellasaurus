@@ -1,0 +1,24 @@
+# Supabase local development config
+# See https://supabase.com/docs/guides/cli/config
+
+[api]
+# Port to use for the local Supabase API server
+port = 54321
+
+[db]
+# Port to use for the local database server
+port = 54322
+
+[studio]
+# Port to use for the Supabase Studio dashboard
+port = 54323
+
+# ── Edge Functions ────────────────────────────────────────────────────────────
+# Both functions use the service-role key internally and perform their own
+# caller validation, so we disable the gateway-level JWT requirement.
+
+[functions.create-child-account]
+verify_jwt = false
+
+[functions.generate-word-content]
+verify_jwt = false

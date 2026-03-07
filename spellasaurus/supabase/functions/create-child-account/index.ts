@@ -22,9 +22,40 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // ── Verify the caller is authenticated ────────────────────────────────────
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(
+      JSON.stringify({ error: "Missing or invalid Authorization header" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Use an anon client scoped to the caller's JWT to get their user ID
+  const callerClient = createClient(
+    SUPABASE_URL,
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } }
+  );
+  const { data: { user: callerUser }, error: callerErr } = await callerClient.auth.getUser();
+  if (callerErr || !callerUser) {
+    return new Response(
+      JSON.stringify({ error: "Invalid or expired session. Please log in again." }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
     const { full_name, username, password, date_of_birth, parent_id } =
       await req.json();
+
+    // Ensure the caller can only create children for themselves
+    if (callerUser.id !== parent_id) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: parent_id does not match authenticated user." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!full_name || !username || !password || !date_of_birth || !parent_id) {
       return new Response(

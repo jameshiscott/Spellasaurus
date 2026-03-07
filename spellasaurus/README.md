@@ -29,6 +29,9 @@ Run the app with dart-define flags:
 Run this any time you modify a model in lib/shared/models/.
 
 ---
+### RUN
+
+`flutter run -d chrome --dart-define-from-file=.env.json`
 
 ## Roles
 

@@ -50,22 +50,42 @@ abstract class AppRoutes {
   static const childResults = '/child/results/:sessionId';
 }
 
+/// Bridges Riverpod auth state into GoRouter's refreshListenable.
+/// The GoRouter instance is created once; this notifier tells it when
+/// to re-evaluate the redirect without recreating the router.
+class _RouterNotifier extends ChangeNotifier {
+  _RouterNotifier(Ref ref) {
+    ref.listen(authStateProvider, (_, __) => notifyListeners());
+    ref.listen(currentProfileProvider, (_, __) => notifyListeners());
+  }
+}
+
+final _routerNotifierProvider = Provider<_RouterNotifier>(
+  (ref) => _RouterNotifier(ref),
+);
+
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final profile = ref.watch(currentProfileProvider);
+  final notifier = ref.watch(_routerNotifierProvider);
 
   return GoRouter(
     initialLocation: AppRoutes.login,
+    refreshListenable: notifier,
     redirect: (context, state) {
+      // Use ref.read — we only want the *current* value, not to watch
+      final authState = ref.read(authStateProvider);
+      final profile = ref.read(currentProfileProvider);
+
       final isLoggedIn = authState.valueOrNull?.session != null;
       final isOnAuth = state.matchedLocation == AppRoutes.login ||
           state.matchedLocation == AppRoutes.register;
 
+      // Not logged in → always go to login
       if (!isLoggedIn && !isOnAuth) return AppRoutes.login;
+
+      // Logged in but on auth screen → redirect to role home
       if (isLoggedIn && isOnAuth) {
-        // Redirect based on role once profile loads
         final p = profile.valueOrNull;
-        if (p == null) return null; // still loading
+        if (p == null) return null; // profile still loading — wait
         return switch (p.role) {
           UserRole.schoolAdmin => AppRoutes.adminDashboard,
           UserRole.teacher => AppRoutes.teacherDashboard,
@@ -177,3 +197,4 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+

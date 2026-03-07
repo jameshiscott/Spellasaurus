@@ -85,7 +85,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Logged in but on auth screen → redirect to role home
       if (isLoggedIn && isOnAuth) {
         final p = profile.valueOrNull;
-        if (p == null) return null; // profile still loading — wait
+        if (p == null && profile.isLoading) return null; // still loading — wait
+        // Profile missing (e.g. trigger didn't fire) — show error on login
+        if (p == null) return null;
         return switch (p.role) {
           UserRole.schoolAdmin => AppRoutes.adminDashboard,
           UserRole.teacher => AppRoutes.teacherDashboard,

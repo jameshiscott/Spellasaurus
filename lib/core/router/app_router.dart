@@ -5,6 +5,7 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/ui/login_screen.dart';
 import '../../features/auth/ui/register_screen.dart';
 import '../../features/school_admin/ui/admin_dashboard.dart';
+import '../../features/school_admin/ui/admin_class_detail_screen.dart';
 import '../../features/school_admin/ui/manage_classes_screen.dart';
 import '../../features/school_admin/ui/manage_teachers_screen.dart';
 import '../../features/teacher/ui/teacher_dashboard.dart';
@@ -16,6 +17,7 @@ import '../../features/parent/ui/child_detail_screen.dart';
 import '../../features/parent/ui/child_settings_screen.dart';
 import '../../features/parent/ui/personal_lists_screen.dart';
 import '../../features/child/ui/child_home_screen.dart';
+import '../../features/child/ui/child_onboarding_screen.dart';
 import '../../features/child/ui/set_list_screen.dart';
 import '../../features/child/ui/practice_screen.dart';
 import '../../features/child/ui/results_screen.dart';
@@ -30,6 +32,7 @@ abstract class AppRoutes {
   static const adminDashboard = '/admin';
   static const adminClasses = '/admin/classes/:schoolId';
   static const adminTeachers = '/admin/teachers/:schoolId';
+  static const adminClassDetail = '/admin/class/:classId';
 
   // Teacher
   static const teacherDashboard = '/teacher';
@@ -41,9 +44,10 @@ abstract class AppRoutes {
   static const parentDashboard = '/parent';
   static const parentChild = '/parent/child/:childId';
   static const parentChildSettings = '/parent/child/:childId/settings';
-  static const parentPersonalLists = '/parent/child/:childId/lists';
+  static const parentPersonalLists = '/parent/lists';
 
   // Child
+  static const childOnboarding = '/child/onboarding';
   static const childHome = '/child';
   static const childSetList = '/child/sets';
   static const childPractice = '/child/practice/:setId';
@@ -88,6 +92,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (p == null && profile.isLoading) return null; // still loading — wait
         // Profile missing (e.g. trigger didn't fire) — show error on login
         if (p == null) return null;
+        if (p.role == UserRole.child && !p.onboardingComplete) {
+          return AppRoutes.childOnboarding;
+        }
         return switch (p.role) {
           UserRole.schoolAdmin => AppRoutes.adminDashboard,
           UserRole.teacher => AppRoutes.teacherDashboard,
@@ -95,6 +102,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           UserRole.child => AppRoutes.childHome,
         };
       }
+
+      // Child logged in, navigating but onboarding not done → force onboarding
+      if (isLoggedIn && !isOnAuth) {
+        final p = profile.valueOrNull;
+        if (p != null &&
+            p.role == UserRole.child &&
+            !p.onboardingComplete &&
+            state.matchedLocation != AppRoutes.childOnboarding) {
+          return AppRoutes.childOnboarding;
+        }
+      }
+
       return null;
     },
     routes: [
@@ -116,6 +135,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'teachers/:schoolId',
             builder: (_, state) => ManageTeachersScreen(
                 schoolId: state.pathParameters['schoolId']!),
+          ),
+          GoRoute(
+            path: 'class/:classId',
+            builder: (_, state) => AdminClassDetailScreen(
+                classId: state.pathParameters['classId']!),
           ),
         ],
       ),
@@ -160,17 +184,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (_, state) => ChildSettingsScreen(
                     childId: state.pathParameters['childId']!),
               ),
-              GoRoute(
-                path: 'lists',
-                builder: (_, state) => PersonalListsScreen(
-                    childId: state.pathParameters['childId']!),
-              ),
             ],
+          ),
+          GoRoute(
+            path: 'lists',
+            builder: (_, __) => const PersonalListsScreen(),
           ),
         ],
       ),
 
       // ── Child ────────────────────────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.childOnboarding,
+        builder: (_, __) => const ChildOnboardingScreen(),
+      ),
       GoRoute(
         path: AppRoutes.childHome,
         builder: (_, __) => const ChildHomeScreen(),

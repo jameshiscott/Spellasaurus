@@ -109,6 +109,14 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
         .select()
         .single();
 
+    // Award 1 coin per correct word
+    if (score > 0 && user != null) {
+      await supabase.rpc('add_coins', params: {
+        'p_child_id': user.id,
+        'p_amount': score,
+      });
+    }
+
     // Save individual answers
     await supabase.from('practice_answers').insert(
       _answers

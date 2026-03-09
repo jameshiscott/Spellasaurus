@@ -12,8 +12,7 @@ class SpellasaurusApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Spellasaurus',
       theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

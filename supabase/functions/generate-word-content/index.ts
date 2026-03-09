@@ -71,6 +71,7 @@ serve(async (req) => {
         model: "gpt-4o",
         max_tokens: 200,
         temperature: 0.7,
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
@@ -81,10 +82,13 @@ serve(async (req) => {
           {
             role: "user",
             content: `Give me a definition and an example sentence for the word "${word}".
+              IMPORTANT RULES:
+              1. The "description" must NOT contain the word "${word}" exactly as written. Describe what it means without using the word itself.
+              2. The "example_sentence" must use the word "${word}" exactly as written (do NOT use a different form, root, or variation of the word). Replace that exact word with "_______" (seven underscores) in the sentence.
               Respond with exactly this JSON shape:
               {
                 "description": "...",
-                "example_sentence": "The word '${word}' used naturally in a sentence."
+                "example_sentence": "A sentence using _______ where the word would go."
               }`,
           },
         ],
@@ -95,15 +99,20 @@ serve(async (req) => {
     let description = "";
     let exampleSentence = "";
 
-    try {
-      const content = gptData.choices[0].message.content as string;
-      const parsed = JSON.parse(content.trim());
-      description = parsed.description ?? "";
-      exampleSentence = parsed.example_sentence ?? "";
-    } catch {
-      description = `"${word}" is a word used in English.`;
-      exampleSentence = `I can spell the word ${word}.`;
+    const rawContent = gptData.choices?.[0]?.message?.content as string ?? "";
+    const parsed = JSON.parse(rawContent);
+    description = parsed.description ?? "";
+    exampleSentence = parsed.example_sentence ?? "";
+
+    if (!description || !exampleSentence) {
+      throw new Error("GPT response missing description or example_sentence");
     }
+
+    // Safety net: ensure the exact word never appears in description or example sentence
+    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const wordRegex = new RegExp(`\\b${escapedWord}\\b`, "gi");
+    description = description.replace(wordRegex, "_______");
+    exampleSentence = exampleSentence.replace(wordRegex, "_______");
 
     // ── 3. Generate TTS audio with OpenAI tts-1-hd ────────────────────────
     const ttsResponse = await fetch("https://api.openai.com/v1/audio/speech", {

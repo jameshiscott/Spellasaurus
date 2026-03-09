@@ -24,6 +24,11 @@ class Profile {
   final String? avatarUrl;
   final DateTime? dateOfBirth;
   final DateTime createdAt;
+  final int coinBalance;
+  final String? displayName;
+  final String? dinoType;
+  final String? dinoColor;
+  final bool onboardingComplete;
 
   const Profile({
     required this.id,
@@ -32,6 +37,11 @@ class Profile {
     this.avatarUrl,
     this.dateOfBirth,
     required this.createdAt,
+    this.coinBalance = 0,
+    this.displayName,
+    this.dinoType,
+    this.dinoColor,
+    this.onboardingComplete = false,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
@@ -43,6 +53,11 @@ class Profile {
             ? null
             : DateTime.parse(json['date_of_birth'] as String),
         createdAt: DateTime.parse(json['created_at'] as String),
+        coinBalance: (json['coin_balance'] as int?) ?? 0,
+        displayName: json['display_name'] as String?,
+        dinoType: json['dino_type'] as String?,
+        dinoColor: json['dino_color'] as String?,
+        onboardingComplete: (json['onboarding_complete'] as bool?) ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -53,6 +68,11 @@ class Profile {
         if (dateOfBirth != null)
           'date_of_birth': dateOfBirth!.toIso8601String(),
         'created_at': createdAt.toIso8601String(),
+        'coin_balance': coinBalance,
+        if (displayName != null) 'display_name': displayName,
+        if (dinoType != null) 'dino_type': dinoType,
+        if (dinoColor != null) 'dino_color': dinoColor,
+        'onboarding_complete': onboardingComplete,
       };
 
   Profile copyWith({
@@ -62,6 +82,11 @@ class Profile {
     String? avatarUrl,
     DateTime? dateOfBirth,
     DateTime? createdAt,
+    int? coinBalance,
+    String? displayName,
+    String? dinoType,
+    String? dinoColor,
+    bool? onboardingComplete,
   }) =>
       Profile(
         id: id ?? this.id,
@@ -70,6 +95,11 @@ class Profile {
         avatarUrl: avatarUrl ?? this.avatarUrl,
         dateOfBirth: dateOfBirth ?? this.dateOfBirth,
         createdAt: createdAt ?? this.createdAt,
+        coinBalance: coinBalance ?? this.coinBalance,
+        displayName: displayName ?? this.displayName,
+        dinoType: dinoType ?? this.dinoType,
+        dinoColor: dinoColor ?? this.dinoColor,
+        onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       );
 
   @override

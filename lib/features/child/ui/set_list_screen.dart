@@ -34,12 +34,11 @@ final _allChildSetsProvider =
   }
 
   final personalData = await supabase
-      .from('spelling_sets')
-      .select()
-      .eq('child_id', user.id)
-      .order('created_at', ascending: false);
+      .from('child_personal_sets')
+      .select('spelling_sets(*)')
+      .eq('child_id', user.id);
   sets.addAll(
-      (personalData as List).map((e) => SpellingSet.fromJson(e)));
+      (personalData as List).map((e) => SpellingSet.fromJson(e['spelling_sets'] as Map<String, dynamic>)));
 
   return sets;
 });

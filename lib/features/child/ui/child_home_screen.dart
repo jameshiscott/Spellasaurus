@@ -8,6 +8,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../shared/models/spelling_set.dart';
+import '../data/dino_data.dart';
 
 final _childSetsThisWeekProvider =
     FutureProvider<List<SpellingSet>>((ref) async {
@@ -81,7 +82,7 @@ class ChildHomeScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Hi ${p?.fullName.split(' ').first ?? 'there'} 👋',
+                          'Hi ${p?.displayName ?? p?.fullName.split(' ').first ?? 'there'} 👋',
                           style: theme.textTheme.headlineMedium,
                         ),
                         Text(
@@ -105,8 +106,16 @@ class ChildHomeScreen extends ConsumerWidget {
               ).animate().fadeIn(),
               const Gap(24),
               // Mascot hero banner
-              _MascotBanner().animate().scale(
-                  duration: 600.ms, curve: Curves.elasticOut, delay: 100.ms),
+              profile.when(
+                data: (p) => _MascotBanner(
+                  dinoType: p?.dinoType,
+                  dinoColor: p?.dinoColor,
+                ).animate().scale(
+                    duration: 600.ms, curve: Curves.elasticOut, delay: 100.ms),
+                loading: () => _MascotBanner().animate().scale(
+                    duration: 600.ms, curve: Curves.elasticOut, delay: 100.ms),
+                error: (_, __) => _MascotBanner(),
+              ),
               const Gap(28),
               // This week's sets
               Row(
@@ -152,9 +161,25 @@ class ChildHomeScreen extends ConsumerWidget {
 }
 
 class _MascotBanner extends StatelessWidget {
+  const _MascotBanner({this.dinoType, this.dinoColor});
+
+  final String? dinoType;
+  final String? dinoColor;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Resolve the dino from profile data
+    DinoType? dt;
+    DinoColor dc = DinoColor.green;
+    if (dinoType != null) {
+      dt = DinoType.values.where((d) => d.name == dinoType).firstOrNull;
+    }
+    if (dinoColor != null) {
+      dc = DinoColor.values.where((c) => c.name == dinoColor).firstOrNull ?? DinoColor.green;
+    }
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -195,7 +220,10 @@ class _MascotBanner extends StatelessWidget {
               ],
             ),
           ),
-          const Text('🦕', style: TextStyle(fontSize: 80)),
+          if (dt != null)
+            DinoAvatar(type: dt, color: dc, size: 90)
+          else
+            const Text('🦕', style: TextStyle(fontSize: 80)),
         ],
       ),
     );

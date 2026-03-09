@@ -5,6 +5,7 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../features/auth/providers/auth_provider.dart';
 import '../../../shared/models/practice_session.dart';
 import '../../../shared/models/spelling_word.dart';
 import '../../../shared/widgets/star_rating.dart';
@@ -30,6 +31,17 @@ final _sessionAnswersProvider =
   return (data as List).cast<Map<String, dynamic>>();
 });
 
+final _coinBalanceProvider = FutureProvider<int>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return 0;
+  final data = await supabase
+      .from('profiles')
+      .select('coin_balance')
+      .eq('id', user.id)
+      .single();
+  return (data['coin_balance'] as int?) ?? 0;
+});
+
 class ResultsScreen extends ConsumerWidget {
   const ResultsScreen({super.key, required this.sessionId});
   final String sessionId;
@@ -38,6 +50,7 @@ class ResultsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(_sessionProvider(sessionId));
     final answers = ref.watch(_sessionAnswersProvider(sessionId));
+    final coinBalance = ref.watch(_coinBalanceProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -53,6 +66,7 @@ class ResultsScreen extends ConsumerWidget {
                   : pct > 0
                       ? '💪 Keep practising!'
                       : '😊 You\'ll get there!';
+          final coinsEarned = s.score;
 
           return SafeArea(
             child: SingleChildScrollView(
@@ -70,47 +84,31 @@ class ResultsScreen extends ConsumerWidget {
                           color: AppColors.primary))
                       .animate()
                       .fadeIn(delay: 100.ms),
-                  const Gap(32),
-                  // Score circle
-                  Container(
-                    width: 160,
-                    height: 160,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.primaryLight],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.4),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                  const Gap(24),
+                  // ── Dino coin animation ──────────────────────────────────
+                  coinBalance.when(
+                    data: (total) => _DinoCoinWidget(
+                      coinsEarned: coinsEarned,
+                      totalCoins: total,
+                    ).animate().fadeIn(delay: 300.ms),
+                    loading: () => _DinoCoinWidget(
+                      coinsEarned: coinsEarned,
+                      totalCoins: 0,
+                    ).animate().fadeIn(delay: 300.ms),
+                    error: (_, __) => _DinoCoinWidget(
+                      coinsEarned: coinsEarned,
+                      totalCoins: 0,
                     ),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${s.score}',
-                            style: theme.textTheme.displayMedium
-                                ?.copyWith(color: Colors.white),
-                          ),
-                          Text(
-                            'of ${s.totalWords}',
-                            style: theme.textTheme.bodyLarge
-                                ?.copyWith(color: Colors.white70),
-                          ),
-                        ],
+                  ),
+                  const Gap(8),
+                  if (coinsEarned > 0)
+                    Text(
+                      '+$coinsEarned coin${coinsEarned == 1 ? '' : 's'} earned!',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: AppColors.secondaryDark,
+                        fontWeight: FontWeight.w800,
                       ),
-                    ),
-                  )
-                      .animate()
-                      .scale(duration: 600.ms, curve: Curves.elasticOut,
-                          delay: 200.ms),
+                    ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.3),
                   const Gap(24),
                   StarRating(score: s.score, total: s.totalWords, size: 48)
                       .animate()
@@ -119,7 +117,7 @@ class ResultsScreen extends ConsumerWidget {
                           curve: Curves.elasticOut,
                           delay: 400.ms),
                   const Gap(40),
-                  // Word breakdown
+                  // ── Word breakdown ───────────────────────────────────────
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text('Word Breakdown',
@@ -174,6 +172,9 @@ class ResultsScreen extends ConsumerWidget {
                                     ],
                                   ),
                                 ),
+                                if (isCorrect)
+                                  const Text('🪙',
+                                      style: TextStyle(fontSize: 20)),
                               ],
                             ),
                           ),
@@ -227,6 +228,183 @@ class ResultsScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+}
+
+// ── Animated dinosaur with coins flying into it ──────────────────────────────
+
+class _DinoCoinWidget extends StatefulWidget {
+  const _DinoCoinWidget({required this.coinsEarned, required this.totalCoins});
+  final int coinsEarned;
+  final int totalCoins;
+
+  @override
+  State<_DinoCoinWidget> createState() => _DinoCoinWidgetState();
+}
+
+class _DinoCoinWidgetState extends State<_DinoCoinWidget>
+    with TickerProviderStateMixin {
+  late final List<AnimationController> _coinControllers;
+
+  // Cap at 8 visible coin particles regardless of score
+  static const int _maxParticles = 8;
+
+  @override
+  void initState() {
+    super.initState();
+    final count = widget.coinsEarned.clamp(0, _maxParticles);
+    _coinControllers = List.generate(count, (i) {
+      final ctrl = AnimationController(
+        duration: const Duration(milliseconds: 700),
+        vsync: this,
+      );
+      // Stagger each coin by 200 ms, starting after a 500 ms initial pause
+      Future.delayed(Duration(milliseconds: 500 + i * 200), () {
+        if (mounted) ctrl.forward();
+      });
+      return ctrl;
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in _coinControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _coinControllers.length;
+
+    return SizedBox(
+      width: 240,
+      height: 240,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Flying coin particles
+          ..._coinControllers.asMap().entries.map((entry) {
+            final i = entry.key;
+            final ctrl = entry.value;
+            // Spread coins horizontally across the dino
+            final xAlign = total > 1 ? (i / (total - 1) - 0.5) * 1.6 : 0.0;
+
+            return AnimatedBuilder(
+              animation: ctrl,
+              builder: (context, _) {
+                final t = ctrl.value;
+                // y goes from -0.9 (above dino) to 0 (dino center)
+                final yAlign = -0.9 + t * 0.9;
+                // fade out in the last 30% of the animation
+                final opacity = t < 0.7 ? 1.0 : (1.0 - (t - 0.7) / 0.3).clamp(0.0, 1.0);
+
+                return Align(
+                  alignment: Alignment(xAlign, yAlign),
+                  child: Opacity(
+                    opacity: opacity,
+                    child: const Text('🪙', style: TextStyle(fontSize: 26)),
+                  ),
+                );
+              },
+            );
+          }),
+
+          // Dino with total coin badge
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Text('🦕', style: TextStyle(fontSize: 110)),
+                  // Coin total badge positioned over the dino's body
+                  Positioned(
+                    bottom: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🪙', style: TextStyle(fontSize: 16)),
+                          const Gap(4),
+                          _AnimatedCoinCount(target: widget.totalCoins),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Counts up from (totalCoins - coinsEarned) to totalCoins with a rolling animation.
+class _AnimatedCoinCount extends StatefulWidget {
+  const _AnimatedCoinCount({required this.target});
+  final int target;
+
+  @override
+  State<_AnimatedCoinCount> createState() => _AnimatedCoinCountState();
+}
+
+class _AnimatedCoinCountState extends State<_AnimatedCoinCount>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<int> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    _anim = IntTween(begin: 0, end: widget.target).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    );
+    // Start counting after coins have begun flying in
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) => Text(
+        '${_anim.value}',
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textDark,
+        ),
       ),
     );
   }

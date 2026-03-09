@@ -137,7 +137,7 @@ class _ClassTile extends StatelessWidget {
             style: theme.textTheme.bodySmall),
         trailing: const Icon(Icons.chevron_right_rounded,
             color: AppColors.textLight),
-        onTap: () {},
+        onTap: () => context.push('/admin/class/${cls.id}'),
       ),
     ).animate().fadeIn(delay: (index * 60).ms).slideX(begin: 0.05);
   }
